@@ -1,0 +1,90 @@
+#define BLYNK_TEMPLATE_ID "TMPL3hScu7GCN"
+#define BLYNK_DEVICE_NAME "health"
+
+#define BLYNK_FIRMWARE_VERSION        "0.1.0"
+
+#define BLYNK_PRINT Serial
+
+
+#define APP_DEBUG
+
+// Uncomment your board, or configure a custom board in Settings.h
+//#define USE_SPARKFUN_BLYNK_BOARD
+#define USE_NODE_MCU_BOARD
+//#define USE_WITTY_CLOUD_BOARD
+//#define USE_WEMOS_D1_MINI
+
+#include "BlynkEdgent.h"
+#include <Wire.h>
+#include "MAX30100.h"
+#include <OneWire.h> 
+#include <DallasTemperature.h>
+#define POLL_PERIOD_US                      1E06 / 100
+#define SAMPLING_RATE                       MAX30100_SAMPRATE_100HZ
+Int buz=D6;
+#define PULSE_WIDTH                         MAX30100_SPC_PW_1600US_16BITS
+#define HIGHRES_MODE                        true
+MAX30100 sensor;
+uint32_t tsLastPollUs = 0;
+
+//  int buz=D6;
+int coun=0;
+uint32_t tsLastReport = 0;
+int BPM, SpO2;
+void onBeatDetected()
+{
+    Serial.println("Beat!");
+}
+void setup()
+{
+  
+  Serial.begin(115200);
+  // pinMode(buz,OUTPUT);
+  sensors.begin();
+if (!sensor.begin()) {
+        Serial.println("FAILED");
+        for(;;);
+    } else {
+        Serial.println("SUCCESS");
+    }
+    sensor.setMode(MAX30100_MODE_SPO2_HR);
+    sensor.setLedsCurrent(IR_LED_CURRENT, RED_LED_CURRENT);
+    sensor.setLedsPulseWidth(PULSE_WIDTH);
+    sensor.setSamplingRate(SAMPLING_RATE);
+    sensor.setHighresModeEnabled(HIGHRES_MODE);
+
+  BlynkEdgent.begin();
+  
+}
+
+void loop() {
+  BlynkEdgent.run();
+ 
+  sensors.requestTemperatures(); // Send the command to get temperature readings 
+    float T= sensors.getTempCByIndex(0);
+    float T1= (T*1.8)+32;
+  Serial.print("Temperature = ");
+  Serial.print(T1);
+  Serial.println("F ");
+ Serial.print("count = ");
+  Serial.println(coun);
+  
+   if (micros() < tsLastPollUs || micros() - tsLastPollUs > POLL_PERIOD_US) {
+        sensor.update();
+        tsLastPollUs = micros();
+
+        Serial.print(sensor.rawIRValue);
+        Serial.print('\t');
+        Serial.println(sensor.rawRedValue);
+    }
+     int bpm = sensor.rawIRValue*0.0025;
+     int spo2 = sensor.rawRedValue*0.004;
+if(bpm>120)
+{
+digitalWrite(buz,HIGH);
+}
+        Blynk.virtualWrite(V0, bpm);
+        Blynk.virtualWrite(V1, spo2);
+        Blynk.virtualWrite(V2, T1);
+      //  delay(1000);
+  }
